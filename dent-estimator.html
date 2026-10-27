@@ -1,0 +1,650 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Dent Estimator</title>
+<style>
+  :root {
+    --ink: #1b1f23;
+    --ink-soft: #5b636b;
+    --paper: #f2efe9;
+    --panel: #ffffff;
+    --line: #d8d3c8;
+    --accent: #b3491f;
+    --accent-dark: #8f3a17;
+    --accent-soft: #e8c9b8;
+    --guide: #ffcf3f;
+    --mono: 'SFMono-Regular', Consolas, 'IBM Plex Mono', monospace;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    font-family: -apple-system, 'Inter', 'Helvetica Neue', Arial, sans-serif;
+    background: var(--paper);
+    color: var(--ink);
+    -webkit-tap-highlight-color: transparent;
+  }
+  .shell {
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 16px 16px 40px;
+  }
+  header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 6px;
+    border-bottom: 3px solid var(--ink);
+    padding-bottom: 10px;
+    margin-bottom: 14px;
+  }
+  header h1 {
+    font-size: 20px;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    margin: 0;
+  }
+  header .tag {
+    font-family: var(--mono);
+    font-size: 11.5px;
+    color: var(--ink-soft);
+  }
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    padding: 14px;
+    margin-bottom: 12px;
+  }
+  .hint {
+    font-size: 14px;
+    line-height: 1.5;
+    color: var(--ink-soft);
+    margin: 0 0 10px;
+  }
+  ol.steps {
+    margin: 0 0 12px;
+    padding-left: 20px;
+    font-size: 14px;
+    line-height: 1.55;
+  }
+  ol.steps li { margin-bottom: 4px; }
+  button {
+    font-family: inherit;
+    font-size: 15px;
+    padding: 12px 14px;
+    border: 1px solid var(--ink);
+    background: var(--panel);
+    color: var(--ink);
+    cursor: pointer;
+    width: 100%;
+    margin-bottom: 8px;
+  }
+  button:disabled { opacity: 0.35; cursor: not-allowed; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+  button.primary:active:not(:disabled) { background: var(--accent-dark); }
+  .btn-row { display: flex; gap: 8px; }
+  .btn-row button { flex: 1; }
+  .view {
+    background: #111;
+    border: 1px solid var(--line);
+    position: relative;
+    margin-bottom: 12px;
+  }
+  .view canvas {
+    display: block;
+    width: 100%;
+    height: auto;
+    touch-action: none;
+  }
+  video { display: none; }
+  .slider-row { margin: 4px 0 6px; }
+  .slider-row label {
+    display: flex;
+    justify-content: space-between;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--ink-soft);
+    margin-bottom: 4px;
+  }
+  .slider-row .val { font-family: var(--mono); color: var(--accent); }
+  input[type="range"] { width: 100%; }
+  .stat-block {
+    background: var(--ink);
+    color: var(--paper);
+    padding: 14px 16px;
+    margin-bottom: 12px;
+  }
+  .stat-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    padding: 5px 0;
+    border-bottom: 1px dashed rgba(242,239,233,0.25);
+  }
+  .stat-row:last-child { border-bottom: none; }
+  .stat-row .k { font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; color: #cfc9bc; }
+  .stat-row .v { font-family: var(--mono); font-size: 17px; }
+  .stat-row.big .v { font-size: 30px; font-weight: 600; color: var(--accent-soft); }
+  .checkbox-row { display: flex; align-items: center; gap: 8px; font-size: 14px; margin: 4px 0 10px; }
+  .checkbox-row input { width: 18px; height: 18px; }
+  .legend { display: flex; gap: 14px; font-size: 13px; color: var(--ink-soft); margin-bottom: 10px; flex-wrap: wrap; }
+  .legend span::before {
+    content: '';
+    display: inline-block;
+    width: 12px; height: 12px;
+    margin-right: 5px;
+    vertical-align: -1px;
+    border: 1px solid var(--accent);
+  }
+  .legend .full::before { background: rgba(179,73,31,0.55); }
+  .legend .half::before { background: rgba(179,73,31,0.25); }
+  .error {
+    border-left: 3px solid var(--accent);
+    background: #faf5ef;
+    padding: 10px 12px;
+    font-size: 14px;
+    line-height: 1.5;
+    margin-bottom: 12px;
+  }
+  .banner {
+    background: var(--ink);
+    color: var(--guide);
+    font-family: var(--mono);
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    padding: 10px 12px;
+    margin-bottom: 8px;
+  }
+  .note { font-size: 12px; color: var(--ink-soft); line-height: 1.5; margin: 0; }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<div class="shell">
+  <header>
+    <h1>Dent Estimator</h1>
+    <div class="tag">1 credit card = 1 labor hour</div>
+  </header>
+
+  <!-- STEP 1: START -->
+  <section id="startStep">
+    <div class="panel">
+      <ol class="steps">
+        <li>Tap <b>Open Camera</b>.</li>
+        <li>Hold a credit card flat on the panel next to the dent.</li>
+        <li>Move the phone until the card exactly fills the yellow outline.</li>
+        <li>Take the card away, keep the phone still, and tap <b>Capture</b>.</li>
+      </ol>
+      <p class="hint">The card is only used to set the distance. It doesn't need to be in the photo.</p>
+      <button id="openCamBtn" class="primary">Open Camera</button>
+      <button id="uploadBtn">Upload a Photo Instead</button>
+      <input type="file" id="fileInput" accept="image/*" hidden>
+      <p class="note">Uploaded photos must show a credit card lying flat on the panel near the dent. You'll tap the two ends of its long edge to set the scale.</p>
+    </div>
+  </section>
+
+  <div id="camError" class="error" hidden></div>
+
+  <!-- STEP 2: LIVE CAMERA -->
+  <section id="cameraStep" hidden>
+    <div class="view"><canvas id="liveCanvas"></canvas></div>
+    <div class="panel">
+      <div class="slider-row">
+        <label>Outline size <span class="val" id="guideVal">40%</span></label>
+        <input type="range" id="guideSlider" min="15" max="70" step="1" value="40">
+      </div>
+      <p class="hint">Smaller outline = phone farther back (for bigger dents). Keep the phone square to the panel.</p>
+      <div class="btn-row">
+        <button id="cancelCamBtn">Cancel</button>
+        <button id="captureBtn" class="primary">Capture</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- STEP 3: COUNT -->
+  <section id="countStep" hidden>
+    <div id="calBanner" class="banner" hidden></div>
+    <div class="view"><canvas id="photoCanvas"></canvas></div>
+    <div id="countUi">
+    <div class="legend">
+      <span class="full">Tap once = full card</span>
+      <span class="half">Tap twice = half card</span>
+      <span>Tap again = clear · Drag = move grid</span>
+    </div>
+
+    <div class="stat-block">
+      <div class="stat-row"><span class="k">Full cards</span><span class="v" id="fullCount">0</span></div>
+      <div class="stat-row"><span class="k">Half cards</span><span class="v" id="halfCount">0</span></div>
+      <div class="stat-row"><span class="k">Total cards</span><span class="v" id="rawTotal">0.0</span></div>
+      <div class="stat-row big"><span class="k">Repair time</span><span class="v" id="hours">0 hr</span></div>
+    </div>
+
+    <div class="panel">
+      <div class="checkbox-row">
+        <input type="checkbox" id="roundUpChk" checked>
+        <label for="roundUpChk">Round up to whole hour</label>
+      </div>
+      <div class="btn-row">
+        <button id="clearSelBtn">Clear Cells</button>
+        <button id="retakeBtn">Retake</button>
+      </div>
+      <button id="recalBtn" hidden>Re-mark Card Scale</button>
+      <button id="downloadBtn" class="primary">Save Annotated Photo</button>
+      <p class="note">Accuracy depends on getting the scale right (matching the card to the outline, or tapping the card's ends precisely) and on shooting square to the panel. On curved or multi-plane panels, treat this as a starting estimate, not a replacement for shop judgment.</p>
+    </div>
+    </div>
+    <button id="calCancelBtn" hidden>Start Over</button>
+  </section>
+
+  <video id="video" playsinline muted></video>
+</div>
+
+<script>
+(function(){
+  const CARD_W_IN = 3.370, CARD_H_IN = 2.125;
+
+  const state = {
+    stream: null,
+    guideFrac: 0.40,   // card outline width as a fraction of frame width
+    photo: null,       // captured or uploaded frame (canvas)
+    source: null,      // 'camera' | 'upload'
+    calibrating: false,
+    calPoints: [],     // image-space taps on the card's long edge (upload only)
+    cellW: 0, cellH: 0,
+    originX: 0, originY: 0,
+    selections: {},    // "col,row" -> 1 | 0.5
+    roundUp: true,
+    pointer: null,     // { id, startX, startY, lastX, lastY, dragging }
+  };
+
+  const $ = id => document.getElementById(id);
+  const video = $('video');
+  const liveCanvas = $('liveCanvas');
+  const liveCtx = liveCanvas.getContext('2d');
+  const photoCanvas = $('photoCanvas');
+  const photoCtx = photoCanvas.getContext('2d');
+  const startStep = $('startStep');
+  const cameraStep = $('cameraStep');
+  const countStep = $('countStep');
+  const camError = $('camError');
+  const guideSlider = $('guideSlider');
+  const guideVal = $('guideVal');
+  const roundUpChk = $('roundUpChk');
+  const fileInput = $('fileInput');
+  const calBanner = $('calBanner');
+  const countUi = $('countUi');
+
+  function showStep(step){
+    startStep.hidden = step !== 'start';
+    cameraStep.hidden = step !== 'camera';
+    countStep.hidden = step !== 'count';
+  }
+
+  function showError(msg){
+    camError.textContent = msg;
+    camError.hidden = !msg;
+  }
+
+  // ---------- camera ----------
+
+  async function openCamera(){
+    showError('');
+    if (!window.isSecureContext || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      showError('The camera only works when this page is opened over https:// (or localhost). Host the file on a secure web address and open it there on your phone.');
+      return;
+    }
+    try {
+      state.stream = await navigator.mediaDevices.getUserMedia({
+        audio: false,
+        video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } }
+      });
+    } catch (err) {
+      showError('Couldn\'t open the camera (' + err.name + '). Check that camera access is allowed for this site.');
+      return;
+    }
+    video.srcObject = state.stream;
+    await video.play();
+    showStep('camera');
+    requestAnimationFrame(renderLive);
+  }
+
+  function stopCamera(){
+    if (state.stream) state.stream.getTracks().forEach(t => t.stop());
+    state.stream = null;
+    video.srcObject = null;
+  }
+
+  function guideRect(w, h){
+    const gw = w * state.guideFrac;
+    const gh = gw * CARD_H_IN / CARD_W_IN;
+    return { x: (w - gw) / 2, y: (h - gh) / 2, w: gw, h: gh };
+  }
+
+  function renderLive(){
+    if (!state.stream || cameraStep.hidden) return;
+    const w = video.videoWidth, h = video.videoHeight;
+    if (w && h) {
+      if (liveCanvas.width !== w) liveCanvas.width = w;
+      if (liveCanvas.height !== h) liveCanvas.height = h;
+      liveCtx.drawImage(video, 0, 0, w, h);
+
+      const g = guideRect(w, h);
+      const lw = Math.max(2, w / 300);
+
+      // faint card grid aligned to the outline, as a size preview
+      drawGrid(liveCtx, w, h, g.x, g.y, g.w, g.h, 'rgba(255,255,255,0.25)', lw / 2);
+
+      // card outline
+      liveCtx.save();
+      liveCtx.strokeStyle = '#ffcf3f';
+      liveCtx.lineWidth = lw * 1.5;
+      liveCtx.setLineDash([lw * 6, lw * 3]);
+      liveCtx.strokeRect(g.x, g.y, g.w, g.h);
+      liveCtx.setLineDash([]);
+      liveCtx.fillStyle = '#ffcf3f';
+      liveCtx.font = `600 ${Math.round(w / 40)}px -apple-system, Arial, sans-serif`;
+      liveCtx.textAlign = 'center';
+      liveCtx.fillText('Fit card here', g.x + g.w / 2, g.y - lw * 4);
+      liveCtx.restore();
+    }
+    requestAnimationFrame(renderLive);
+  }
+
+  function capture(){
+    const w = video.videoWidth, h = video.videoHeight;
+    if (!w || !h) return;
+    const snap = document.createElement('canvas');
+    snap.width = w;
+    snap.height = h;
+    snap.getContext('2d').drawImage(video, 0, 0, w, h);
+    stopCamera();
+
+    // The outline was exactly one card at the panel, so it defines the grid cell.
+    const g = guideRect(w, h);
+    loadPhoto(snap, 'camera');
+    setGrid(g.w, g.x, g.y);
+  }
+
+  // ---------- upload ----------
+
+  const MAX_UPLOAD_PX = 2400;
+
+  fileInput.addEventListener('change', () => {
+    const file = fileInput.files[0];
+    fileInput.value = '';
+    if (!file) return;
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      const s = Math.min(1, MAX_UPLOAD_PX / Math.max(img.naturalWidth, img.naturalHeight));
+      const snap = document.createElement('canvas');
+      snap.width = Math.round(img.naturalWidth * s);
+      snap.height = Math.round(img.naturalHeight * s);
+      snap.getContext('2d').drawImage(img, 0, 0, snap.width, snap.height);
+      URL.revokeObjectURL(url);
+      showError('');
+      loadPhoto(snap, 'upload');
+      startCalibration();
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      showError('That file couldn\'t be opened as an image. Try a JPG or PNG.');
+    };
+    img.src = url;
+  });
+
+  function startCalibration(){
+    state.calibrating = true;
+    state.calPoints = [];
+    state.selections = {};
+    updateCalUi();
+    updateStats();
+    drawPhoto();
+  }
+
+  function addCalPoint(pt){
+    state.calPoints.push(pt);
+    if (state.calPoints.length === 2) {
+      const [a, b] = state.calPoints;
+      const len = Math.hypot(b.x - a.x, b.y - a.y);
+      if (len < 10) {
+        state.calPoints = [];
+      } else {
+        state.calibrating = false;
+        // start the grid with its top-left corner at the leftmost tap
+        setGrid(len, Math.min(a.x, b.x), a.x < b.x ? a.y : b.y);
+      }
+    }
+    updateCalUi();
+    drawPhoto();
+  }
+
+  function updateCalUi(){
+    calBanner.hidden = !state.calibrating;
+    countUi.hidden = state.calibrating;
+    $('calCancelBtn').hidden = !state.calibrating;
+    $('recalBtn').hidden = state.source !== 'upload';
+    if (state.calibrating) {
+      calBanner.textContent = state.calPoints.length === 0
+        ? 'Tap one end of the card\'s long edge'
+        : 'Now tap the other end of the long edge';
+    }
+  }
+
+  // ---------- shared photo setup ----------
+
+  function loadPhoto(snap, source){
+    state.photo = snap;
+    state.source = source;
+    state.calibrating = false;
+    state.calPoints = [];
+    state.selections = {};
+    photoCanvas.width = snap.width;
+    photoCanvas.height = snap.height;
+    updateCalUi();
+    showStep('count');
+  }
+
+  function setGrid(cardWidthPx, originX, originY){
+    state.cellW = cardWidthPx;
+    state.cellH = cardWidthPx * CARD_H_IN / CARD_W_IN;
+    state.originX = originX;
+    state.originY = originY;
+    state.selections = {};
+    updateStats();
+    drawPhoto();
+  }
+
+  // ---------- grid + counting ----------
+
+  function drawGrid(ctx, w, h, ox, oy, cw, ch, color, lw){
+    ctx.save();
+    ctx.strokeStyle = color;
+    ctx.lineWidth = lw;
+    ctx.beginPath();
+    for (let x = ox - Math.ceil(ox / cw) * cw; x <= w; x += cw) {
+      ctx.moveTo(x, 0);
+      ctx.lineTo(x, h);
+    }
+    for (let y = oy - Math.ceil(oy / ch) * ch; y <= h; y += ch) {
+      ctx.moveTo(0, y);
+      ctx.lineTo(w, y);
+    }
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  function drawPhoto(){
+    if (!state.photo) return;
+    const w = photoCanvas.width, h = photoCanvas.height;
+    const { cellW, cellH, originX, originY } = state;
+    const lw = Math.max(1.5, w / 600);
+
+    photoCtx.drawImage(state.photo, 0, 0);
+
+    if (state.calibrating) {
+      photoCtx.save();
+      photoCtx.strokeStyle = photoCtx.fillStyle = '#ffcf3f';
+      photoCtx.lineWidth = lw * 2;
+      state.calPoints.forEach(p => {
+        photoCtx.beginPath();
+        photoCtx.arc(p.x, p.y, lw * 5, 0, Math.PI * 2);
+        photoCtx.fill();
+      });
+      photoCtx.restore();
+      return;
+    }
+
+    Object.entries(state.selections).forEach(([key, val]) => {
+      const [col, row] = key.split(',').map(Number);
+      photoCtx.fillStyle = val === 1 ? 'rgba(179,73,31,0.55)' : 'rgba(179,73,31,0.25)';
+      photoCtx.fillRect(originX + col * cellW, originY + row * cellH, cellW, cellH);
+    });
+
+    drawGrid(photoCtx, w, h, originX, originY, cellW, cellH, 'rgba(255,255,255,0.75)', lw);
+    drawGrid(photoCtx, w, h, originX + lw, originY + lw, cellW, cellH, 'rgba(0,0,0,0.35)', lw);
+
+    // label half cells so they're distinguishable from full ones
+    photoCtx.save();
+    photoCtx.fillStyle = '#fff';
+    photoCtx.font = `700 ${Math.round(cellH / 4)}px -apple-system, Arial, sans-serif`;
+    photoCtx.textAlign = 'center';
+    photoCtx.textBaseline = 'middle';
+    Object.entries(state.selections).forEach(([key, val]) => {
+      if (val !== 0.5) return;
+      const [col, row] = key.split(',').map(Number);
+      photoCtx.fillText('½', originX + (col + 0.5) * cellW, originY + (row + 0.5) * cellH);
+    });
+    photoCtx.restore();
+  }
+
+  function toImagePoint(evt){
+    const rect = photoCanvas.getBoundingClientRect();
+    return {
+      x: (evt.clientX - rect.left) * photoCanvas.width / rect.width,
+      y: (evt.clientY - rect.top) * photoCanvas.height / rect.height
+    };
+  }
+
+  function toggleCell(pt){
+    const col = Math.floor((pt.x - state.originX) / state.cellW);
+    const row = Math.floor((pt.y - state.originY) / state.cellH);
+    const key = col + ',' + row;
+    const cur = state.selections[key];
+    // cycle: empty -> full -> half -> empty
+    if (cur === undefined) state.selections[key] = 1;
+    else if (cur === 1) state.selections[key] = 0.5;
+    else delete state.selections[key];
+    updateStats();
+    drawPhoto();
+  }
+
+  photoCanvas.addEventListener('pointerdown', (evt) => {
+    if (state.pointer) return;
+    photoCanvas.setPointerCapture(evt.pointerId);
+    state.pointer = { id: evt.pointerId, startX: evt.clientX, startY: evt.clientY, last: toImagePoint(evt), dragging: false };
+  });
+
+  photoCanvas.addEventListener('pointermove', (evt) => {
+    const p = state.pointer;
+    if (!p || p.id !== evt.pointerId) return;
+    if (state.calibrating) return;
+    if (!p.dragging && Math.hypot(evt.clientX - p.startX, evt.clientY - p.startY) > 10) p.dragging = true;
+    if (p.dragging) {
+      const pt = toImagePoint(evt);
+      state.originX += pt.x - p.last.x;
+      state.originY += pt.y - p.last.y;
+      p.last = pt;
+      drawPhoto();
+    }
+  });
+
+  photoCanvas.addEventListener('pointerup', (evt) => {
+    const p = state.pointer;
+    if (!p || p.id !== evt.pointerId) return;
+    state.pointer = null;
+    if (state.calibrating) addCalPoint(toImagePoint(evt));
+    else if (!p.dragging) toggleCell(toImagePoint(evt));
+  });
+
+  photoCanvas.addEventListener('pointercancel', () => { state.pointer = null; });
+
+  function totals(){
+    let full = 0, half = 0;
+    Object.values(state.selections).forEach(v => { if (v === 1) full++; else half++; });
+    const raw = full + half * 0.5;
+    const hours = state.roundUp ? Math.ceil(raw) : raw;
+    return { full, half, raw, hours };
+  }
+
+  function formatHours(hours){
+    return (Number.isInteger(hours) ? hours : hours.toFixed(1)) + ' hr';
+  }
+
+  function updateStats(){
+    const t = totals();
+    $('fullCount').textContent = t.full;
+    $('halfCount').textContent = t.half;
+    $('rawTotal').textContent = t.raw.toFixed(1);
+    $('hours').textContent = formatHours(t.hours);
+  }
+
+  function saveAnnotated(){
+    const t = totals();
+    const w = photoCanvas.width, h = photoCanvas.height;
+    const bar = Math.round(w / 14);
+    const out = document.createElement('canvas');
+    out.width = w;
+    out.height = h + bar;
+    const ctx = out.getContext('2d');
+    ctx.drawImage(photoCanvas, 0, 0);
+    ctx.fillStyle = '#1b1f23';
+    ctx.fillRect(0, h, w, bar);
+    ctx.fillStyle = '#f2efe9';
+    ctx.font = `600 ${Math.round(bar * 0.42)}px -apple-system, Arial, sans-serif`;
+    ctx.textBaseline = 'middle';
+    ctx.fillText(`${t.raw.toFixed(1)} cards  ·  ${t.full} full, ${t.half} half`, bar * 0.4, h + bar / 2);
+    ctx.textAlign = 'right';
+    ctx.fillStyle = '#e8c9b8';
+    ctx.fillText('Est. ' + formatHours(t.hours), w - bar * 0.4, h + bar / 2);
+
+    const link = document.createElement('a');
+    link.download = 'dent-estimate.png';
+    link.href = out.toDataURL('image/png');
+    link.click();
+  }
+
+  // ---------- wiring ----------
+
+  $('openCamBtn').addEventListener('click', openCamera);
+  $('captureBtn').addEventListener('click', capture);
+  $('cancelCamBtn').addEventListener('click', () => { stopCamera(); showStep('start'); });
+  $('uploadBtn').addEventListener('click', () => fileInput.click());
+  $('retakeBtn').addEventListener('click', () => {
+    if (state.source === 'upload') fileInput.click();
+    else openCamera();
+  });
+  $('recalBtn').addEventListener('click', startCalibration);
+  $('calCancelBtn').addEventListener('click', () => { state.photo = null; showStep('start'); });
+  $('clearSelBtn').addEventListener('click', () => { state.selections = {}; updateStats(); drawPhoto(); });
+  $('downloadBtn').addEventListener('click', saveAnnotated);
+
+  guideSlider.addEventListener('input', () => {
+    state.guideFrac = parseInt(guideSlider.value, 10) / 100;
+    guideVal.textContent = guideSlider.value + '%';
+  });
+
+  roundUpChk.addEventListener('change', () => {
+    state.roundUp = roundUpChk.checked;
+    updateStats();
+  });
+
+  showStep('start');
+})();
+</script>
+</body>
+</html>
